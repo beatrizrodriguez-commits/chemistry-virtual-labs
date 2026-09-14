@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unknown Substances Virtual Lab — V15</title>
+<style>
+:root{
+  --navy:#0d3270;
+  --blue:#147fe9;
+  --ink:#10243f;
+  --panel:#f7fbff;
+  --line:#a7bacb;
+  --cream:#fff1c8;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#111820;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+button,input,textarea{font:inherit}
+.app{max-width:1875px;min-width:1080px;margin:0 auto;background:#20262c;box-shadow:0 0 30px #0007}
+
+/* Approved V10 classroom scene */
+.scene{
+  position:relative;
+  width:100%;
+  aspect-ratio:1875 / 548;
+  background:url("lab_scene.png") center/100% 100% no-repeat;
+  overflow:hidden;
+  user-select:none;
+}
+.hotspot{position:absolute;cursor:grab;border-radius:10px;outline:2px solid transparent}
+.hotspot:hover{outline-color:#65b9ff99;background:#65b9ff0b}
+.hotspot:active{cursor:grabbing}
+.jar-hit{cursor:pointer}
+.jar-hit.selected{outline:4px solid #299cff;background:#299cff13}
+.dropzone{position:absolute;border-radius:16px;outline:3px dashed transparent;pointer-events:none}
+.scene.dragging .dropzone{outline-color:#68beffbb;background:#68beff0e}
+
+/* V15: the realistic cup is baked into the scene artwork.
+   Only liquid/solid contents are overlaid inside it. */
+.cup-contents{
+  position:absolute;
+  left:42.05%; top:47.2%;
+  width:5.6%; height:20.0%;
+  z-index:7; pointer-events:none;
+  overflow:hidden;
+  border-radius:9px 9px 18px 18px / 7px 7px 18px 18px;
+}
+.cup-liquid{
+  position:absolute; left:4%; right:4%; bottom:3%; height:0%;
+  background:rgba(168,226,245,.58); border-radius:0 0 13px 13px; transition:.2s
+}
+.cup-liquid.cloudy{background:rgba(231,227,211,.83)}
+.cup-solid{
+  position:absolute; left:12%; right:12%; bottom:3%; height:0%;
+  background:rgba(242,239,230,.92); border-radius:50%; transition:.2s
+}
+/* Instrument displays */
+.mass-overlay{
+  position:absolute;left:41.72%;top:72.45%;width:6.82%;height:8.05%;
+  display:flex;align-items:center;justify-content:center;
+  font:900 clamp(14px,1.55vw,27px) ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#102216;background:#c2d4c7;border-radius:4px;z-index:9;
+  box-shadow:inset 0 0 0 1px rgba(60,75,68,.18);
+}
+.ec-overlay{
+  position:absolute;left:77.0%;top:55.0%;width:4.0%;height:7.0%;
+  display:flex;align-items:center;justify-content:flex-end;padding-right:.35%;
+  font:900 clamp(12px,1.35vw,24px) ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#102216;background:#b8c8bc;border-radius:2px;z-index:8;
+}
+.bulb-glow{
+  position:absolute;left:91.6%;top:56.2%;width:4.8%;height:16%;
+  border-radius:50%;opacity:0;pointer-events:none;z-index:7
+}
+.bulb-glow.dim{opacity:.45;background:radial-gradient(circle,#fff8af 0,#ffe36d66 42%,transparent 72%)}
+.bulb-glow.bright{opacity:.88;background:radial-gradient(circle,#fffbd3 0,#ffe76b99 45%,transparent 75%);filter:blur(1px)}
+
+/* V10: messages live down on the lab bench, not over the posters. */
+.toast{
+  position:absolute;left:50%;bottom:3.3%;transform:translateX(-50%);
+  max-width:52%;background:#102333f2;color:white;border:1px solid #75a8cf;
+  border-radius:10px;padding:8px 14px;font-size:clamp(11px,.9vw,15px);
+  box-shadow:0 4px 12px #0005;opacity:0;transition:.18s;z-index:30;pointer-events:none;
+  text-align:center
+}
+.toast.show{opacity:1}
+
+/* Navigation */
+.tabs{height:55px;display:flex;gap:6px;padding:6px 10px;background:#20262c;align-items:center}
+.tab{
+  height:42px;padding:0 20px;border:1px solid #95a4af;border-radius:7px;
+  background:linear-gradient(#505b66,#333b43);color:#fff;font-weight:850;cursor:pointer
+}
+.tab.active{background:linear-gradient(#2d94f3,#1169cf);border-color:#64b5ff}
+.tab.spacer{margin-left:auto}.tab.reset{background:#58636d}.tab.new{background:#d84454}
+
+/* Lower panels */
+.lower{display:grid;grid-template-columns:1fr .9fr 1.38fr;gap:7px;padding:0 9px 9px;background:#20262c}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.card h2{margin:0;padding:11px 18px;background:linear-gradient(90deg,#e4f3ff,#fafcff);color:var(--navy);font-size:18px}
+.cardbody{padding:12px 17px;font-size:14px}
+.testpanel{display:none}.testpanel.show{display:block}
+
+/* V10: fixed-width numbered circles + flexible text removes odd wrapping/spacing. */
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{
+  counter-increment:s;display:grid;grid-template-columns:30px minmax(0,1fr);
+  align-items:start;column-gap:10px;margin:7px 0;line-height:1.35
+}
+.steps li:before{
+  content:counter(s);width:24px;height:24px;border:2px solid #58799b;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-weight:900;color:#244e7c;
+  flex:none
+}
+.steps li > *{min-width:0}
+.tip{margin-top:13px;padding:11px;background:var(--cream);border-radius:8px;line-height:1.35}
+.field{margin:8px 0}.field label{display:block;font-weight:850;margin-bottom:4px}
+.scratch{width:100%;border:1px solid #b5c7d8;border-radius:6px;padding:8px;background:white}
+textarea.scratch{height:50px;resize:none}
+.note{font-size:11px;color:#607487;margin-top:7px}
+.result{margin-top:12px;border:1px solid #b7c8d8;border-radius:8px;background:#fff;padding:11px;min-height:67px}
+.big{font-size:27px;font-weight:900;color:var(--navy)}
+.strip{display:inline-block;width:110px;height:22px;border:1px solid #777;vertical-align:middle;margin-left:7px}
+.phref{margin-top:14px;padding:10px;border:1px solid #b7c8d8;border-radius:8px;background:#fff}
+.phref-title{font-weight:900;margin-bottom:8px;color:var(--navy)}
+.phscale{display:grid;grid-template-columns:repeat(15,1fr);gap:2px;align-items:end}
+.phbox{height:34px;border:1px solid #8d8d8d;border-radius:3px}
+.phnum{text-align:center;font-size:10px;margin-top:3px;color:#31485f}
+.phregions{display:grid;grid-template-columns:7fr 1fr 7fr;margin-top:7px;font-size:11px;font-weight:800;text-align:center}
+.phregions span:nth-child(1){background:#ffe5e2}.phregions span:nth-child(2){background:#e9f6df}.phregions span:nth-child(3){background:#e3ebff}
+.phregions span{padding:4px;border-radius:4px}
+
+.notebook{background:#fffdf5;border:2px solid #c99a47;box-shadow:inset 32px 0 0 #f1f1eb}
+.notebook h2{padding-left:47px;background:transparent}.notebook .cardbody{padding-left:47px}
+.reminders{border-top:1px solid #d1d6da;padding:9px 47px;font-size:12px}.reminders b{font-size:16px;color:var(--navy)}
+.reminders ul{margin:5px 0;padding-left:18px}
+.notes-panel{padding:14px 47px 12px}
+.notes-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.notes-title{font-size:18px;font-weight:900;color:var(--navy)}
+.notes-sub{font-size:11px;color:#617487;margin-top:2px}
+.notes-list{min-height:190px;max-height:250px;overflow:auto;background:#fff;border:1px solid #c7d4df;border-radius:9px;padding:10px 12px}
+.note-item{display:grid;grid-template-columns:72px 1fr;gap:9px;padding:8px 0;border-bottom:1px solid #e4ebf0;font-size:12px;line-height:1.3}
+.note-item:last-child{border-bottom:0}.note-unknown{font-weight:900;color:#0d3470}.note-text{color:#24384d}
+.note-placeholder{color:#7a8c9d;font-style:italic;padding:8px 0}
+.note-clear{border:1px solid #a9b8c5;background:#eef4f8;color:#29445f;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:800;cursor:pointer}
+
+.modal{display:none;position:fixed;inset:0;background:#000b;z-index:100;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modalbox{width:min(820px,92vw);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:18px;position:relative}
+.modalbox .x{position:absolute;right:12px;top:10px;border:0;border-radius:50%;width:35px;height:35px;font-size:23px;cursor:pointer}
+.modalbox img{width:100%;max-height:500px;object-fit:contain;background:#222;border-radius:10px}
+.modalbox .prompt{background:#fff4c7;padding:12px;border-radius:9px;margin-top:10px}
+
+@media(max-width:1280px){
+  .tab{padding:0 12px;font-size:13px}
+  .lower{grid-template-columns:1fr 1fr}
+  .notebook{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<section id="scene" class="scene">
+  <!-- Unknown A-E hotspots -->
+  <div class="hotspot jar-hit selected" data-unknown="A" style="left:1.2%;top:47%;width:5.5%;height:30%"></div>
+  <div class="hotspot jar-hit" data-unknown="B" style="left:7.7%;top:47%;width:5.5%;height:30%"></div>
+  <div class="hotspot jar-hit" data-unknown="C" style="left:14.0%;top:47%;width:5.5%;height:30%"></div>
+  <div class="hotspot jar-hit" data-unknown="D" style="left:20.2%;top:47%;width:5.5%;height:30%"></div>
+  <div class="hotspot jar-hit" data-unknown="E" style="left:26.3%;top:47%;width:5.5%;height:30%"></div>
+
+
+  <div class="hotspot draggable" draggable="true" data-tool="sample" style="left:1.0%;top:80%;width:9.5%;height:15%"></div>
+  <div class="hotspot draggable" draggable="true" data-tool="stir" style="left:10.5%;top:78%;width:15.5%;height:16%"></div>
+  <div class="hotspot draggable" draggable="true" data-tool="water" style="left:54.0%;top:39%;width:7.5%;height:43%"></div>
+  <div class="hotspot draggable" draggable="true" data-tool="ph" style="left:59.5%;top:83%;width:13.0%;height:14%"></div>
+  <div class="hotspot draggable" draggable="true" data-tool="ec" style="left:76.0%;top:43%;width:7.0%;height:48%"></div>
+  <div class="hotspot draggable" draggable="true" data-tool="bulb" style="left:84.0%;top:55%;width:15.0%;height:39%"></div>
+
+  <!-- Balance/cup drop region -->
+  <div class="dropzone" id="balanceDrop" style="left:36.2%;top:55%;width:17%;height:36%"></div>
+  <!-- V15: the visible cup is part of lab_scene.png; these overlays show only its contents. -->
+  <div class="cup-contents" aria-hidden="true">
+    <div id="cupLiquid" class="cup-liquid"></div>
+    <div id="cupSolid" class="cup-solid"></div>
+  </div>
+
+<div id="massDisplay" class="mass-overlay">—</div>
+  <div id="ecDisplay" class="ec-overlay">0</div>
+  <div id="bulbGlow" class="bulb-glow"></div>
+  <div id="toast" class="toast"></div>
+</section>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="mass">1. Mass &amp; Solubility</button>
+  <button class="tab" data-tab="ph">2. pH Test</button>
+  <button class="tab" data-tab="ec">3. Conductivity (EC)</button>
+  <button class="tab" data-tab="bulb">4. Bulb Test</button>
+  <button class="tab" data-tab="mag">5. Magnified View</button>
+  <button id="resetBtn" class="tab spacer reset">↻ Reset Tools</button>
+  <button id="newBtn" class="tab new">⚗ New Unknown</button>
+</nav>
+
+<section class="lower">
+  <div class="card">
+    <h2 id="stepTitle">Step 1: Mass &amp; Solubility</h2>
+    <div class="cardbody">
+      <div id="massPanel" class="testpanel show">
+        <ol class="steps">
+          <li>Record the mass of the empty cup shown on the balance.</li>
+          <li>Add DI water until the water mass is between 28–32 g.</li>
+          <li>Add one scoop (1/8 tsp) of the selected unknown.</li>
+          <li>Use the stir rod to stir carefully and observe.</li>
+          <li>Record your measurements and observations in your science notebook.</li>
+        </ol>
+        <div class="tip">💡 <b>Tip:</b> 28–32 g refers to the mass of the DI water, not the total mass.</div>
+      </div>
+
+      <div id="phPanel" class="testpanel">
+        <ol class="steps"><li>Stir the mixture first.</li><li>Drag pH paper to the cup.</li><li>Compare the color to the pH scale.</li><li>Record your estimate.</li></ol>
+        <div id="phResult" class="result">No pH test yet.</div>
+        <div class="phref">
+          <div class="phref-title">pH Color Reference (0–14)</div>
+          <div class="phscale">
+            <div><div class="phbox" style="background:#c63230"></div><div class="phnum">0</div></div>
+            <div><div class="phbox" style="background:#da3f32"></div><div class="phnum">1</div></div>
+            <div><div class="phbox" style="background:#e65b33"></div><div class="phnum">2</div></div>
+            <div><div class="phbox" style="background:#ee852f"></div><div class="phnum">3</div></div>
+            <div><div class="phbox" style="background:#e8b632"></div><div class="phnum">4</div></div>
+            <div><div class="phbox" style="background:#cdd042"></div><div class="phnum">5</div></div>
+            <div><div class="phbox" style="background:#8ac44e"></div><div class="phnum">6</div></div>
+            <div><div class="phbox" style="background:#55b96d"></div><div class="phnum">7</div></div>
+            <div><div class="phbox" style="background:#36b09a"></div><div class="phnum">8</div></div>
+            <div><div class="phbox" style="background:#30a9b8"></div><div class="phnum">9</div></div>
+            <div><div class="phbox" style="background:#318fc8"></div><div class="phnum">10</div></div>
+            <div><div class="phbox" style="background:#3d73c9"></div><div class="phnum">11</div></div>
+            <div><div class="phbox" style="background:#5c55bc"></div><div class="phnum">12</div></div>
+            <div><div class="phbox" style="background:#773fa8"></div><div class="phnum">13</div></div>
+            <div><div class="phbox" style="background:#8c3598"></div><div class="phnum">14</div></div>
+          </div>
+          <div class="phregions"><span>Acidic</span><span>Neutral</span><span>Basic</span></div>
+        </div>
+      </div>
+
+      <div id="ecPanel" class="testpanel">
+        <ol class="steps"><li>Stir the mixture first.</li><li>Drag the EC meter to the cup.</li><li>Wait for the value to stabilize.</li><li>Record the value and units. The meter display has a maximum of 9,999 µS/cm.</li></ol>
+        <div id="ecResult" class="result">No EC test yet.</div>
+      </div>
+
+      <div id="bulbPanel" class="testpanel">
+        <ol class="steps"><li>Stir the mixture first.</li><li>Drag the conductivity tester to the cup.</li><li>Observe the bulb.</li><li>Record off, dim, or bright.</li></ol>
+        <div id="bulbResult" class="result">No bulb test yet.</div>
+      </div>
+
+      <div id="magPanel" class="testpanel">
+        <ol class="steps"><li>Select an unknown.</li><li>Open the Magnified View.</li><li>Look at shape, size, texture, uniformity, and arrangement.</li><li>Record what you notice.</li></ol>
+        <button id="openMag" class="tab active" style="margin-top:10px">🔬 Open Magnified View</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Your Observations <span style="font-size:13px">(Record in your notebook)</span></h2>
+    <div class="cardbody">
+      <div class="field"><label>Empty cup mass (g):</label><input id="cupField" class="scratch" placeholder="Write this in your notebook"></div>
+      <div class="field"><label>Mass of DI water (g):</label><input id="waterField" class="scratch" placeholder="Write this in your notebook"></div>
+      <div class="field"><label>Appearance before mixing:</label><textarea class="scratch" placeholder="Describe what you see..."></textarea></div>
+      <div class="field"><label>Appearance after mixing:</label><textarea class="scratch" placeholder="Describe what you see..."></textarea></div>
+      <div class="field"><label>What happened when stirred?</label><textarea class="scratch" placeholder="Describe your evidence..."></textarea></div>
+      <div class="note">These boxes are only temporary scratch space. Your science notebook is the official record.</div>
+    </div>
+  </div>
+
+  <div class="card notebook">
+    <h2>🧪 Simulation Notes <span style="font-size:13px">(temporary)</span></h2>
+    <div class="notes-panel">
+      <div class="notes-header">
+        <div>
+          <div class="notes-title">What happened during the lab?</div>
+          <div class="notes-sub">The same messages that pop up will also stay here so you can refer back to them. Your science notebook is still the official record.</div>
+        </div>
+        <button id="clearNotesBtn" class="note-clear">Clear notes</button>
+      </div>
+      <div id="notesList" class="notes-list">
+        <div class="note-placeholder">Lab messages will appear here as you work.</div>
+      </div>
+    </div>
+    <div class="reminders">
+      <b>📌 Important Reminders</b>
+      <ul>
+        <li><b>Record all data in your science notebook.</b></li>
+        <li>Use complete sentences for observations.</li>
+        <li>This evidence will later support a claim, so be accurate and detailed.</li>
+        <li>Test every unknown with every tool and look for patterns across your data.</li>
+        <li>Reset/rinse between unknowns.</li>
+        <li>Think like a scientist: curious, careful, and persistent.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+</div>
+
+<div id="modal" class="modal">
+  <div class="modalbox">
+    <button id="closeModal" class="x">×</button>
+    <h2 id="magTitle">🔬 Magnified View — Unknown A</h2>
+    <img id="magImg" alt="Magnified unknown sample">
+    <div class="prompt"><b>What do you notice?</b><br>Consider shape, size, texture, uniformity, and arrangement. Record your observations in your science notebook.</div>
+  </div>
+</div>
+
+<script>
+const samples={
+ A:{scoop:.72,ph:7.0,ecMin:3600,ecMax:4020,bulb:"Bright",cloudy:false,residue:.02,img:"unknown_A.png",sol:"No obvious solid remains visible after stirring."},
+ B:{scoop:.55,ph:6.8,ecMin:9000,ecMax:9999,bulb:"Off",cloudy:false,residue:.02,img:"unknown_B.png",sol:"No obvious solid remains visible after stirring."},
+ C:{scoop:.60,ph:8.3,ecMin:8890,ecMax:9920,bulb:"Bright",cloudy:false,residue:.07,img:"unknown_C.png",sol:"Little to no solid remains visible after stirring."},
+ D:{scoop:.62,ph:3.6,ecMin:3000,ecMax:4000,bulb:"Dim",cloudy:false,residue:.34,img:"unknown_D.png",sol:"Some solid remains visible after stirring."},
+ E:{scoop:.48,ph:6.7,ecMin:1000,ecMax:1500,bulb:"Off",cloudy:true,residue:.58,img:"unknown_E.png",sol:"The mixture looks cloudy and visible solid remains."}
+};
+
+let current="A";
+let noteHistory=[];
+let currentCupMass=randCupMass();
+let state={cup:true,water:0,sample:false,stirred:false,ecReading:null};
+
+const $=id=>document.getElementById(id);
+function randCupMass(){return Math.round((2+Math.random()*4)*100)/100;}
+
+function toast(t){
+  const x=$("toast");
+  x.textContent=t;
+  x.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(()=>x.classList.remove("show"),1900);
+  addNote(t);
+}
+
+function addNote(text){
+  if(!text)return;
+  noteHistory.push({unknown:current,text});
+  if(noteHistory.length>12)noteHistory=noteHistory.slice(-12);
+  renderNotes();
+}
+function renderNotes(){
+  const list=$("notesList");
+  if(noteHistory.length===0){
+    list.innerHTML='<div class="note-placeholder">Lab messages will appear here as you work.</div>';
+    return;
+  }
+  list.innerHTML=noteHistory.map(n=>`<div class="note-item"><div class="note-unknown">Unknown ${n.unknown}</div><div class="note-text">${n.text}</div></div>`).join("");
+  list.scrollTop=list.scrollHeight;
+}
+
+function totalMass(){
+  let m=currentCupMass;
+  m+=state.water;
+  if(state.sample)m+=samples[current].scoop;
+  return m;
+}
+function updateMass(){$("massDisplay").textContent=totalMass().toFixed(2)+" g";}
+
+function phColor(v){
+  const c=["#c63230","#da3f32","#e65b33","#ee852f","#e8b632","#cdd042","#8ac44e","#55b96d","#36b09a","#30a9b8","#318fc8","#3d73c9","#5c55bc","#773fa8","#8c3598"];
+  return c[Math.max(0,Math.min(14,Math.round(v)))];
+}
+function needStir(){
+  if(!state.stirred){toast("Stir the mixture before testing it.");return false}
+  return true;
+}
+
+function act(tool){
+  const d=samples[current];
+
+  if(tool==="water"){
+    if(state.water>=32){toast("Water mass is already at 32.0 g.");return}
+    state.water=Math.min(32,state.water+2);
+    $("waterField").value=state.water.toFixed(1);
+    $("cupLiquid").style.height=(state.water/32*68)+"%";
+    updateMass();
+    toast(state.water<28?`Water mass: ${state.water.toFixed(1)} g`:`Water mass: ${state.water.toFixed(1)} g — within the 28–32 g target.`);
+    return;
+  }
+
+  if(tool==="sample"){
+    if(!state.cup||state.water<28){toast("First measure 28–32 g of DI water.");return}
+    if(state.sample){toast("The sample is already in the cup.");return}
+    state.sample=true;
+    $("cupSolid").style.height="8%";
+    updateMass();
+    toast("1/8 tsp of Unknown "+current+" added.");
+    return;
+  }
+
+  if(tool==="stir"){
+    if(!state.sample){toast("Add the sample before stirring.");return}
+    state.stirred=true;
+    $("cupSolid").style.height=(8*d.residue)+"%";
+    $("cupLiquid").classList.toggle("cloudy",d.cloudy);
+    toast(d.sol);
+    return;
+  }
+
+  if(tool==="ph"){
+    if(!needStir())return;
+    switchTab("ph");
+    $("phResult").innerHTML=`<b>pH strip:</b> <span class="strip" style="background:${phColor(d.ph)}"></span><br><small>Compare the color to the scale and record your estimate.</small>`;
+    toast("pH strip developed. Compare its color with the reference scale.");
+    return;
+  }
+
+  if(tool==="ec"){
+    if(!needStir())return;
+    switchTab("ec");
+    if(state.ecReading===null){
+      state.ecReading=Math.floor(Math.random()*(d.ecMax-d.ecMin+1))+d.ecMin;
+    }
+    $("ecDisplay").textContent=state.ecReading.toLocaleString();
+    $("ecResult").innerHTML=`<div class="big">${state.ecReading.toLocaleString()} µS/cm</div><small>Record the stabilized reading.</small>`;
+    toast(`EC reading: ${state.ecReading.toLocaleString()} µS/cm`);
+    return;
+  }
+
+  if(tool==="bulb"){
+    if(!needStir())return;
+    switchTab("bulb");
+    $("bulbGlow").className="bulb-glow "+(d.bulb==="Dim"?"dim":d.bulb==="Bright"?"bright":"");
+    $("bulbResult").innerHTML=`<div class="big">Bulb: ${d.bulb}</div><small>Record exactly what you observe.</small>`;
+    toast("Bulb observation: "+d.bulb);
+  }
+}
+
+function switchTab(tab){
+  document.querySelectorAll(".tab[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+  document.querySelectorAll(".testpanel").forEach(p=>p.classList.remove("show"));
+  $(tab+"Panel").classList.add("show");
+  const names={
+    mass:"Step 1: Mass & Solubility",
+    ph:"Step 2: pH Test",
+    ec:"Step 3: Conductivity (EC)",
+    bulb:"Step 4: Bulb Test",
+    mag:"Step 5: Magnified View"
+  };
+  $("stepTitle").textContent=names[tab];
+}
+
+function reset(show=true){
+  currentCupMass=randCupMass();
+  state={cup:true,water:0,sample:false,stirred:false,ecReading:null};
+  updateMass();
+  $("ecDisplay").textContent="0";
+  $("cupLiquid").style.height="0%";
+  $("cupLiquid").classList.remove("cloudy");
+  $("cupSolid").style.height="0%";
+  $("bulbGlow").className="bulb-glow";
+  $("phResult").textContent="No pH test yet.";
+  $("ecResult").textContent="No EC test yet.";
+  $("bulbResult").textContent="No bulb test yet.";
+  $("cupField").value=currentCupMass.toFixed(2);
+  $("waterField").value="";
+  document.querySelectorAll("textarea.scratch").forEach(x=>x.value="");
+  if(show)toast("Tools rinsed/reset for Unknown "+current+".");
+}
+
+/* Select unknown */
+document.querySelectorAll(".jar-hit").forEach(el=>{
+  el.addEventListener("click",()=>{
+    current=el.dataset.unknown;
+    document.querySelectorAll(".jar-hit").forEach(x=>x.classList.toggle("selected",x===el));
+    reset(false);
+    toast("Unknown "+current+" selected.");
+  });
+});
+
+/* Drag/drop */
+document.querySelectorAll(".draggable").forEach(el=>{
+  el.addEventListener("dragstart",e=>{
+    const tool=el.dataset.tool;
+    e.dataTransfer.setData("text/plain",tool);
+    const ghost=new Image();
+    ghost.src="drag_"+tool+".png";
+    ghost.style.position="absolute";
+    ghost.style.left="-9999px";
+    document.body.appendChild(ghost);
+    ghost.onload=()=>{
+      try{e.dataTransfer.setDragImage(ghost,Math.min(ghost.width/2,80),Math.min(ghost.height/2,80))}catch(_){}
+    };
+    setTimeout(()=>ghost.remove(),1200);
+    $("scene").classList.add("dragging");
+  });
+  el.addEventListener("dragend",()=>$("scene").classList.remove("dragging"));
+});
+
+$("scene").addEventListener("dragover",e=>e.preventDefault());
+$("scene").addEventListener("drop",e=>{
+  e.preventDefault();
+  $("scene").classList.remove("dragging");
+  const tool=e.dataTransfer.getData("text/plain");
+  if(!tool)return;
+
+  const r=$("scene").getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width;
+  const y=(e.clientY-r.top)/r.height;
+
+  // Cup is permanently on the balance. Drop tools onto the cup area.
+  if(x>.395 && x<.495 && y>.405 && y<.735){
+    act(tool);
+  } else {
+    toast("Drop the tool on the cup.");
+  }
+});
+
+document.querySelectorAll(".tab[data-tab]").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+$("resetBtn").onclick=()=>reset(true);
+$("clearNotesBtn").onclick=()=>{noteHistory=[];renderNotes();};
+$("newBtn").onclick=()=>{
+  const ls="ABCDE",i=ls.indexOf(current);
+  current=ls[(i+1)%5];
+  document.querySelectorAll(".jar-hit").forEach(x=>x.classList.toggle("selected",x.dataset.unknown===current));
+  reset(false);
+  toast("New sample selected: Unknown "+current+".");
+};
+$("openMag").onclick=()=>{
+  $("magTitle").textContent="🔬 Magnified View — Unknown "+current;
+  $("magImg").src=samples[current].img;
+  $("modal").classList.add("show");
+};
+$("closeModal").onclick=()=>$("modal").classList.remove("show");
+$("modal").onclick=e=>{if(e.target===$("modal"))$("modal").classList.remove("show")};
+
+reset(false);
+renderNotes();
+</script>
+</body>
+</html>
