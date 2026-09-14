@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baking Soda Virtual Labs</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #f7fbff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .page {
+      width: min(100%, 1199px);
+      margin: 0 auto;
+      position: relative;
+      line-height: 0;
+      background: white;
+    }
+    .page img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Invisible interactive areas placed over the artwork. */
+    .hotspot {
+      position: absolute;
+      display: block;
+      z-index: 10;
+      border-radius: 14px;
+      text-decoration: none;
+    }
+    .hotspot:focus-visible {
+      outline: 4px solid #16324f;
+      outline-offset: 3px;
+      background: rgba(255,255,255,.12);
+    }
+
+    /* Back to Chemistry Virtual Labs */
+    .back-home {
+      left: 2.4%;
+      top: 2.1%;
+      width: 18.3%;
+      height: 4.9%;
+    }
+
+    /* Lesson 1.1 - Open Virtual Lab */
+    .open-lab {
+      left: 8.0%;
+      top: 27.1%;
+      width: 17.1%;
+      height: 3.9%;
+    }
+
+    /* Bite Scized Education footer credit */
+    .credit {
+      left: 32.4%;
+      top: 96.4%;
+      width: 16.1%;
+      height: 2.0%;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <img
+      src="baking_soda_unit_landing_page.png"
+      alt="Baking Soda Virtual Labs unit landing page. Lesson 1 includes Identifying Properties of Baking Soda and Sugar and Water Demo. Lessons 2 through 4 show upcoming baking soda investigations and labs.">
+
+    <a class="hotspot back-home" href="../" aria-label="Back to Chemistry Virtual Labs">
+      <span class="sr-only">Back to Chemistry Virtual Labs</span>
+    </a>
+
+    <a class="hotspot open-lab" href="unknown-substances/" aria-label="Open Identifying Properties of Baking Soda virtual lab">
+      <span class="sr-only">Open Identifying Properties of Baking Soda virtual lab</span>
+    </a>
+
+    <a class="hotspot credit"
+       href="https://www.bitescized.org/"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="Visit Bite Scized Education">
+      <span class="sr-only">Visit Bite Scized Education</span>
+    </a>
+  </main>
+</body>
+</html>
